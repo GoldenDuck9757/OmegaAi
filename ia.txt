@@ -18,7 +18,7 @@ async function equipAndActivateShield() {
     try {
       await bot.equip(shield, 'off-hand');
       console.log('Escudo equipado na mão secundária.');
-      bot.activateItem(); // Ativa o escudo
+      bot.activateItem(true); // Ativa o escudo na mão secundária
     } catch (err) {
       console.error('Erro ao equipar o escudo:', err);
     }
