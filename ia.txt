@@ -1,59 +1,41 @@
 const mineflayer = require('mineflayer');
 
 const bot = mineflayer.createBot({
-  host: 'localhost',
-  port: 25565,
-  username: 'EscudoBot'
+  host: 'localhost', // Substitua pelo IP do seu servidor
+  port: 25565,       // Substitua pela porta do seu servidor
+  username: 'EscudoBot' // Nome do bot
 });
 
+// Função para verificar se o item é um escudo
 function isShield(item) {
   return item && item.name === 'shield';
 }
 
+// Equipar escudo na mão secundária e ativar
+async function equipAndActivateShield() {
+  const shield = bot.inventory.items().find(isShield);
+  if (shield) {
+    try {
+      await bot.equip(shield, 'off-hand');
+      console.log('Escudo equipado na mão secundária.');
+      bot.activateItem(); // Ativa o escudo
+    } catch (err) {
+      console.error('Erro ao equipar o escudo:', err);
+    }
+  } else {
+    console.log('Escudo não encontrado no inventário.');
+  }
+}
+
+// Evento disparado quando o bot entra no jogo
 bot.on('spawn', () => {
   console.log('Bot conectado.');
-
-  // Espera o inventário carregar e verifica se já tem escudo
-  setTimeout(() => {
-    const items = bot.inventory.items();
-    const shield = items.find(isShield);
-    if (shield) {
-      equipShield(shield);
-    }
-  }, 1000);
+  // Espera o inventário carregar antes de tentar equipar o escudo
+  setTimeout(equipAndActivateShield, 1000);
 });
 
-// Reage a atualizações do inventário (ex: novos itens, trocas)
-bot.on('windowUpdate', () => {
-  const items = bot.inventory.items();
-  for (let item of items) {
-    if (isShield(item)) {
-      equipShield(item);
-    } else if (bot.canEquip(item, 'hand')) {
-      equipMain(item);
-    }
-  }
-});
+// Evento disparado quando o inventário é atualizado
+bot.on('windowUpdate', equipAndActivateShield);
 
-function equipMain(item) {
-  bot.equip(item, 'hand').then(() => {
-    console.log(`Equipado na mão principal: ${item.name}`);
-  }).catch(console.error);
-}
-
-function equipShield(item) {
-  bot.equip(item, 'off-hand').then(() => {
-    console.log('Escudo equipado na mão secundária.');
-    bot.setControlState('use', true); // Segura botão direito
-  }).catch(console.error);
-}
-
-bot.on('itemDrop', () => {
-  bot.setControlState('use', false);
-});
-
-bot.on('itemPickup', () => {
-  setTimeout(() => {
-    bot.emit('windowUpdate');
-  }, 300);
-});
+// Evento disparado quando o bot coleta um item
+bot.on('itemPickup', equipAndActivateShield);
