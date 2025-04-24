@@ -12,12 +12,20 @@ function isShield(item) {
 
 bot.on('spawn', () => {
   console.log('Bot conectado.');
+
+  // Espera o inventário carregar e verifica se já tem escudo
+  setTimeout(() => {
+    const items = bot.inventory.items();
+    const shield = items.find(isShield);
+    if (shield) {
+      equipShield(shield);
+    }
+  }, 1000);
 });
 
-// Verifica inventário sempre que houver atualização
+// Reage a atualizações do inventário (ex: novos itens, trocas)
 bot.on('windowUpdate', () => {
   const items = bot.inventory.items();
-
   for (let item of items) {
     if (isShield(item)) {
       equipShield(item);
@@ -27,28 +35,24 @@ bot.on('windowUpdate', () => {
   }
 });
 
-// Equipar na mão principal
 function equipMain(item) {
   bot.equip(item, 'hand').then(() => {
     console.log(`Equipado na mão principal: ${item.name}`);
   }).catch(console.error);
 }
 
-// Equipar escudo na mão secundária e segurar botão de uso
 function equipShield(item) {
   bot.equip(item, 'off-hand').then(() => {
     console.log('Escudo equipado na mão secundária.');
-    bot.setControlState('use', true); // Segura o botão direito
+    bot.setControlState('use', true); // Segura botão direito
   }).catch(console.error);
 }
 
-// Garante que o escudo seja reativado se ele for jogado fora e readquirido
 bot.on('itemDrop', () => {
   bot.setControlState('use', false);
 });
 
 bot.on('itemPickup', () => {
-  // Espera um pouco e reanalisa o inventário para reagir ao item novo
   setTimeout(() => {
     bot.emit('windowUpdate');
   }, 300);
