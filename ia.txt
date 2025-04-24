@@ -7,28 +7,25 @@ const bot = mineflayer.createBot({
   username: 'EscudoBot'
 });
 
-// Verifica se o item é um escudo
 function isShield(item) {
   return item && item.name === 'shield';
 }
 
-// Verifica se o escudo está na mão secundária
 function hasShieldEquipped() {
   const offHand = bot.inventory.slots[bot.getEquipmentDestSlot('off-hand')];
   return isShield(offHand);
 }
 
-// Equipa e ativa escudo
 async function checkAndEquipShield() {
   if (!hasShieldEquipped()) {
     const shield = bot.inventory.items().find(isShield);
     if (shield) {
       try {
         await bot.equip(shield, 'off-hand');
-        console.log('Escudo equipado.');
         bot.activateItem(true);
+        console.log('Escudo equipado e ativado.');
       } catch (err) {
-        console.error('Erro ao equipar o escudo:', err.message);
+        console.error('Erro ao equipar escudo:', err.message);
       }
     }
   } else {
@@ -36,52 +33,58 @@ async function checkAndEquipShield() {
   }
 }
 
-// Acha o jogador mais próximo
-function getNearestPlayer() {
-  const players = Object.values(bot.players).filter(p => p.entity);
-  players.sort((a, b) => {
-    const da = bot.entity.position.distanceTo(a.entity.position);
-    const db = bot.entity.position.distanceTo(b.entity.position);
-    return da - db;
-  });
-  return players[0] || null;
+// Encontra o jogador mais próximo dentro de um raio de 90 blocos
+function getNearestPlayerWithinRadius(radius = 90) {
+  let closest = null;
+  let closestDistance = Infinity;
+
+  for (const username in bot.players) {
+    const player = bot.players[username];
+    if (!player.entity) continue;
+
+    const dist = bot.entity.position.distanceTo(player.entity.position);
+    if (dist <= radius && dist < closestDistance) {
+      closest = player.entity;
+      closestDistance = dist;
+    }
+  }
+
+  return closest;
 }
 
-// Aproxima-se do jogador mantendo distância segura
-function followPlayerSmartly() {
-  const player = getNearestPlayer();
-  if (player && player.entity) {
-    const dist = bot.entity.position.distanceTo(player.entity.position);
-    bot.lookAt(player.entity.position.offset(0, 1.6, 0)); // Olha no rosto do player
-    if (dist > 3) {
-      const dir = player.entity.position.minus(bot.entity.position).normalize();
-      const targetPos = player.entity.position.minus(dir.scaled(2.5)); // Para manter ~2.5 blocos de distância
-      bot.setControlState('forward', true);
-      bot.setControlState('sprint', true);
-      bot.lookAt(player.entity.position.offset(0, 1.6, 0));
-      bot.navigate?.setGoal && bot.navigate.setGoal(null); // cancela qualquer navegação
-      bot.pathfinder?.goto && bot.pathfinder.goto({ position: targetPos });
-    } else {
-      bot.setControlState('forward', false);
-      bot.setControlState('sprint', false);
-    }
+function followAndLookPlayer() {
+  const target = getNearestPlayerWithinRadius();
+  if (!target) return;
+
+  const distance = bot.entity.position.distanceTo(target.position);
+
+  // Olha sempre pro jogador
+  bot.lookAt(target.position.offset(0, 1.6, 0), true);
+
+  // Aproxima-se se estiver a mais de 2.5 blocos de distância
+  if (distance > 2.5) {
+    const direction = target.position.minus(bot.entity.position).normalize().scaled(0.4);
+    const nextPos = bot.entity.position.plus(direction);
+    bot.setControlState('forward', true);
+    bot.lookAt(target.position.offset(0, 1.6, 0), true);
+    bot.physics.simulatePlayerMovement = false;
+    bot.entity.velocity = direction;
+  } else {
+    bot.setControlState('forward', false);
   }
 }
 
 bot.on('spawn', () => {
-  console.log('Bot entrou no mundo.');
+  console.log('Bot conectado.');
 
-  // Espera inventário carregar
   setTimeout(() => {
     checkAndEquipShield();
-
-    // Loop inteligente
     setInterval(() => {
       checkAndEquipShield();
-      followPlayerSmartly();
-    }, 1500);
-  }, 2000);
+      followAndLookPlayer();
+    }, 500);
+  }, 1000);
 });
 
-bot.on('itemPickup', () => setTimeout(checkAndEquipShield, 1000));
-bot.on('windowUpdate', () => setTimeout(checkAndEquipShield, 1000));
+bot.on('itemPickup', () => setTimeout(checkAndEquipShield, 500));
+bot.on('windowUpdate', () => setTimeout(checkAndEquipShield, 500));
