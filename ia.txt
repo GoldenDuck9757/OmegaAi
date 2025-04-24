@@ -1,1 +1,43 @@
-...
+const mineflayer = require('mineflayer');
+const CharacterAI = require("node_characterai");
+const characterAI = new CharacterAI();
+
+// Definir o Token e o ID do personagem
+const token = 'df1efd92985f78eb7323912db746065ac8d295d5';
+const characterId = 'Hp11PhMEnD2glWzEhvouiSNzBiuILz7UyEMhumivlhY';
+
+// Autentica como visitante usando o token
+(async () => {
+  await characterAI.authenticateWithToken(token);
+
+  // Cria ou continua a conversa com o personagem
+  const chat = await characterAI.createOrContinueChat(characterId);
+
+  // Criação do bot do Mineflayer
+  const bot = mineflayer.createBot({
+    host: 'papaya.fps.ms:26189',  // Endereço do servidor Minecraft
+    port: 25565,                  // Porta do servidor Minecraft
+    username: 'Bot',              // Nome do bot
+  });
+
+  // Evento para quando o bot recebe uma mensagem no chat
+  bot.on('chat', async (username, message) => {
+    // Impede o bot de processar suas próprias mensagens
+    if (username === bot.username) return;
+
+    // Obtém a posição atual do bot
+    const { x, y, z } = bot.entity.position;
+    const positionString = `Sua Posição Atual: X=${x.toFixed(2)}, Y=${y.toFixed(2)}, Z=${z.toFixed(2)}`;
+
+    // Formata a mensagem no estilo desejado
+    const formattedMessage = `${username}: ${message}\n${positionString}`;
+    console.log(`Mensagem formatada enviada para a IA:\n${formattedMessage}`);
+
+    // Envia a mensagem formatada para o CharacterAI e aguarda a resposta
+    const response = await chat.sendAndAwaitResponse(formattedMessage, true);
+
+    // Envia a resposta do modelo de volta para o chat do Minecraft
+    bot.chat(response.text);
+    console.log(`Resposta enviada ao chat: ${response.text}`);
+  });
+})();
